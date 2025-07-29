@@ -231,6 +231,7 @@ class TestCanvasAnimationApp(unittest.TestCase):
         self.assertEqual(self.app.remaining_seconds, 0)
         self.assertIsNone(self.app.timer_id)
         self.assertIsNone(self.app.start_time)
+        self.assertIsNone(self.app.end_time)
     
     def test_launch_firework(self):
         """花火発射テスト"""
@@ -274,6 +275,7 @@ class TestCanvasAnimationApp(unittest.TestCase):
         self.assertEqual(self.app.timer_seconds, 0)
         self.assertEqual(self.app.remaining_seconds, 0)
         self.assertIsNone(self.app.start_time)
+        self.assertIsNone(self.app.end_time)
     
     def test_update_timer_display(self):
         """タイマー表示更新テスト"""
@@ -311,6 +313,89 @@ class TestCanvasAnimationApp(unittest.TestCase):
             
             # 終了時刻が計算されることを確認
             self.assertEqual(end_time, "12:10")
+    
+    def test_show_timer_dialog_sets_end_time(self):
+        """タイマーダイアログで終了時刻が設定されるテスト"""
+        with patch('fireworks.fireworks.TimerDialog') as mock_dialog_class:
+            # モックダイアログを作成
+            mock_dialog = Mock()
+            mock_dialog.result = 300  # 5分
+            mock_dialog_class.return_value = mock_dialog
+            
+            with patch.object(self.app, 'wait_window') as mock_wait_window:
+                with patch.object(self.app, 'start_animation') as mock_start_animation:
+                    with patch('datetime.datetime') as mock_datetime:
+                        # 現在時刻を固定
+                        mock_now = Mock()
+                        mock_datetime.now.return_value = mock_now
+                        
+                        # 終了時刻をモック
+                        mock_end = Mock()
+                        mock_timedelta = Mock()
+                        mock_datetime.timedelta.return_value = mock_timedelta
+                        mock_now.__add__ = Mock(return_value=mock_end)
+                        
+                        # タイマーダイアログを表示
+                        self.app.show_timer_dialog()
+                        
+                        # 終了時刻が設定されることを確認
+                        self.assertIsNotNone(self.app.end_time)
+                        self.assertEqual(self.app.timer_seconds, 300)
+                        self.assertEqual(self.app.remaining_seconds, 300)  # タイマー開始前なので300のまま
+    
+    def test_update_break_display_with_fixed_end_time(self):
+        """固定終了時刻での休憩表示更新テスト"""
+        with patch('datetime.datetime') as mock_datetime:
+            # 終了時刻をモック
+            mock_end = Mock()
+            mock_end.strftime.return_value = "12:10"
+            
+            # アプリケーションの状態を設定
+            self.app.is_running = True
+            self.app.timer_seconds = 300
+            self.app.remaining_seconds = 180
+            self.app.end_time = mock_end
+            
+            # 休憩表示を更新
+            self.app.update_break_display()
+            
+            # 正しいメッセージが表示されることを確認
+            self.assertIn("12:10", self.app.break_var.get())
+            self.assertIn("休憩中", self.app.break_var.get())
+    
+    def test_update_break_display_timer_finished(self):
+        """タイマー終了時の休憩表示テスト"""
+        with patch('datetime.datetime') as mock_datetime:
+            # 終了時刻をモック
+            mock_end = Mock()
+            mock_end.strftime.return_value = "12:10"
+            
+            # アプリケーションの状態を設定（タイマー終了）
+            self.app.is_running = True
+            self.app.timer_seconds = 300
+            self.app.remaining_seconds = 0
+            self.app.end_time = mock_end
+            
+            # 休憩表示を更新
+            self.app.update_break_display()
+            
+            # 正しいメッセージが表示されることを確認
+            self.assertIn("12:10", self.app.break_var.get())
+            self.assertIn("再開時刻", self.app.break_var.get())
+            self.assertIn("講義を再開します", self.app.break_var.get())
+    
+    def test_update_break_display_no_timer(self):
+        """タイマーなしでの休憩表示テスト"""
+        # タイマーが設定されていない状態
+        self.app.is_running = False
+        self.app.timer_seconds = 0
+        self.app.end_time = None
+        
+        # 休憩表示を更新
+        self.app.update_break_display()
+        
+        # 表示が空になることを確認
+        self.assertEqual(self.app.break_var.get(), "")
 
 
 class TestIntegration(unittest.TestCase):

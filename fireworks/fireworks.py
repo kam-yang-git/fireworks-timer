@@ -254,6 +254,7 @@ class CanvasAnimationApp(tk.Tk):
         self.remaining_seconds = 0
         self.timer_id = None
         self.start_time = None  # 開始時刻を記録
+        self.end_time = None  # 終了時刻を記録
         
         self.create_widgets()
         self.setup_animations()
@@ -333,7 +334,11 @@ class CanvasAnimationApp(tk.Tk):
         if dialog.result is not None:
             self.timer_seconds = dialog.result
             self.remaining_seconds = self.timer_seconds
-            self.start_time = self.after_idle(self.get_current_time)  # 開始時刻を記録
+            # 開始時刻と終了時刻を記録
+            import datetime
+            now = datetime.datetime.now()
+            self.start_time = now
+            self.end_time = now + datetime.timedelta(seconds=self.timer_seconds)
             self.start_animation()
     
     def get_current_time(self):
@@ -360,13 +365,13 @@ class CanvasAnimationApp(tk.Tk):
     
     def update_break_display(self):
         """休憩中表示を更新"""
-        if self.is_running and self.timer_seconds > 0:
+        if self.is_running and self.timer_seconds > 0 and self.end_time:
             if self.remaining_seconds > 0:
-                end_time = self.calculate_end_time()
-                self.break_var.set(f"休憩中　再開時刻は {end_time} です。")
+                end_time_str = self.end_time.strftime("%H:%M")
+                self.break_var.set(f"休憩中　再開時刻は {end_time_str} です。")
             else:
-                end_time = self.calculate_end_time()
-                self.break_var.set(f"再開時刻 {end_time} になりました。講義を再開します。")
+                end_time_str = self.end_time.strftime("%H:%M")
+                self.break_var.set(f"再開時刻 {end_time_str} になりました。講義を再開します。")
         else:
             self.break_var.set("")
     
@@ -442,6 +447,7 @@ class CanvasAnimationApp(tk.Tk):
         self.timer_seconds = 0
         self.remaining_seconds = 0
         self.start_time = None
+        self.end_time = None
         self.timer_var.set("")
         self.break_var.set("")
     
