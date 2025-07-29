@@ -241,7 +241,7 @@ class CanvasAnimationApp(tk.Tk):
     def __init__(self):
         super().__init__()
         
-        self.title("Canvasアニメーション")
+        self.title("Fireworks Timer Application")
         self.geometry("1280x720")
         
         # アニメーション制御
