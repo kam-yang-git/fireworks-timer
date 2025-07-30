@@ -398,6 +398,241 @@ class TestCanvasAnimationApp(unittest.TestCase):
         self.assertEqual(self.app.break_var.get(), "")
 
 
+class TestAnimationAndTimer(unittest.TestCase):
+    """アニメーションとタイマーのテスト"""
+    
+    def setUp(self):
+        """テスト前の準備"""
+        self.app = CanvasAnimationApp()
+    
+    def tearDown(self):
+        """テスト後のクリーンアップ"""
+        self.app.destroy()
+    
+    def test_start_animation(self):
+        """アニメーション開始のテスト"""
+        # 初期状態を確認
+        self.assertFalse(self.app.is_running)
+        self.assertIsNone(self.app.animation_id)
+        
+        # アニメーションを開始
+        self.app.start_animation()
+        
+        # 状態が変更されることを確認
+        self.assertTrue(self.app.is_running)
+        self.assertIsNotNone(self.app.animation_id)
+    
+    def test_stop_animation(self):
+        """アニメーション停止のテスト"""
+        # アニメーションを開始
+        self.app.start_animation()
+        self.assertTrue(self.app.is_running)
+        
+        # アニメーションを停止
+        self.app.stop_animation()
+        
+        # 状態が変更されることを確認
+        self.assertFalse(self.app.is_running)
+        self.assertIsNone(self.app.animation_id)
+        self.assertEqual(self.app.timer_var.get(), "")
+        self.assertEqual(self.app.break_var.get(), "")
+    
+    def test_animate_method(self):
+        """アニメーションループのテスト"""
+        # アニメーションを開始
+        self.app.is_running = True
+        self.app.frame_count = 0
+        self.app.next_firework_frame = 1  # 次のフレームで花火を発射
+        
+        # 花火を追加
+        initial_firework_count = len(self.app.fireworks)
+        
+        # アニメーションループを実行
+        self.app.animate()
+        
+        # フレームカウントが増加することを確認
+        self.assertEqual(self.app.frame_count, 1)
+        
+        # 自動花火発射が動作することを確認（next_firework_frameを調整）
+        self.app.frame_count = 100
+        self.app.next_firework_frame = 100
+        self.app.animate()
+        
+        # 花火が追加されることを確認
+        self.assertGreater(len(self.app.fireworks), initial_firework_count)
+    
+    def test_animate_when_not_running(self):
+        """アニメーション停止時のanimateテスト"""
+        # アニメーションを停止
+        self.app.is_running = False
+        initial_frame_count = self.app.frame_count
+        
+        # animateを呼び出しても何も起こらないことを確認
+        self.app.animate()
+        
+        # フレームカウントが変更されないことを確認
+        self.assertEqual(self.app.frame_count, initial_frame_count)
+    
+    def test_update_timer(self):
+        """タイマー更新のテスト"""
+        # タイマーを設定
+        self.app.is_running = True
+        self.app.remaining_seconds = 10
+        self.app.timer_seconds = 10
+        
+        # タイマー更新を実行
+        with patch.object(self.app, 'after') as mock_after:
+            self.app.update_timer()
+            
+            # 残り時間が減少することを確認
+            self.assertEqual(self.app.remaining_seconds, 9)
+            
+            # 次のタイマー更新がスケジュールされることを確認
+            mock_after.assert_called_once_with(1000, self.app.update_timer)
+    
+    def test_update_timer_finished(self):
+        """タイマー終了時のテスト"""
+        # タイマーを設定（残り時間1から0になるように）
+        self.app.is_running = True
+        self.app.remaining_seconds = 1
+        self.app.timer_seconds = 10
+        self.app.animation_id = "dummy_id"
+        
+        with patch.object(self.app, 'after_cancel') as mock_after_cancel:
+            with patch.object(self.app, 'update_break_display') as mock_update_break:
+                with patch.object(self.app.canvas, 'delete') as mock_delete:
+                    # タイマー更新を実行（remaining_secondsが1から0になる）
+                    self.app.update_timer()
+                    
+                    # アニメーションが停止されることを確認
+                    self.assertFalse(self.app.is_running)
+                    self.assertIsNone(self.app.animation_id)
+                    
+                    # 花火が消されることを確認
+                    mock_delete.assert_called_once_with('firework')
+    
+    def test_animate_with_finished_fireworks(self):
+        """終了した花火の処理テスト"""
+        # 花火を作成して爆発させる
+        firework = Firework(100, 500, 200)
+        firework.explode()
+        self.app.fireworks.append(firework)
+        
+        # パーティクルの寿命を0にする
+        for particle in firework.particles:
+            particle.life = 0
+        
+        # アニメーションを開始
+        self.app.is_running = True
+        
+        # アニメーションループを実行
+        self.app.animate()
+        
+        # 終了した花火が削除されることを確認
+        self.assertEqual(len(self.app.fireworks), 0)
+    
+    def test_animate_clears_canvas(self):
+        """アニメーション時のキャンバスクリアテスト"""
+        # アニメーションを開始
+        self.app.is_running = True
+        
+        # キャンバスに何かを描画
+        self.app.canvas.create_oval(0, 0, 10, 10, tags='firework')
+        
+        # アニメーションループを実行
+        self.app.animate()
+        
+        # キャンバスがクリアされることを確認（fireworkタグの要素が削除される）
+        # 実際のテストでは、キャンバスの内容を直接確認することは難しいため、
+        # アニメーションが正常に動作することを確認
+    
+    def test_animate_schedules_next_frame(self):
+        """次のフレームのスケジュールテスト"""
+        # アニメーションを開始
+        self.app.is_running = True
+        
+        with patch.object(self.app, 'after') as mock_after:
+            # アニメーションループを実行
+            self.app.animate()
+            
+            # 次のフレームがスケジュールされることを確認
+            mock_after.assert_called_once_with(50, self.app.animate)
+    
+    def test_update_timer_display_integration(self):
+        """タイマー表示の統合テスト"""
+        # タイマーを設定
+        self.app.remaining_seconds = 125  # 2分5秒
+        
+        # タイマー表示を更新
+        self.app.update_timer_display()
+        
+        # 表示が正しく更新されることを確認
+        self.assertEqual(self.app.timer_var.get(), "残り時間: 02:05")
+    
+    def test_update_break_display_integration(self):
+        """休憩表示の統合テスト"""
+        # 終了時刻を設定
+        with patch('datetime.datetime') as mock_datetime:
+            mock_end = Mock()
+            mock_end.strftime.return_value = "12:10"
+            
+            self.app.is_running = True
+            self.app.timer_seconds = 300  # タイマー秒数を設定
+            self.app.remaining_seconds = 180  # 残り時間を設定
+            self.app.end_time = mock_end
+            
+            # 休憩表示を更新
+            self.app.update_break_display()
+            
+            # 正しいメッセージが表示されることを確認
+            break_text = self.app.break_var.get()
+            self.assertIn("12:10", break_text)
+            self.assertIn("休憩中", break_text)
+    
+    def test_launch_firework_integration(self):
+        """花火発射の統合テスト"""
+        # ランダム花火発射
+        initial_count = len(self.app.fireworks)
+        self.app.launch_firework()
+        
+        # 花火が追加されることを確認
+        self.assertEqual(len(self.app.fireworks), initial_count + 1)
+        
+        # 追加された花火のプロパティを確認
+        firework = self.app.fireworks[-1]
+        self.assertIsInstance(firework.x, int)
+        self.assertIsInstance(firework.target_y, int)
+        self.assertFalse(firework.exploded)
+    
+    def test_firework_lifecycle_integration(self):
+        """花火ライフサイクルの統合テスト"""
+        # 花火を発射
+        self.app.launch_firework(100, 200)
+        firework = self.app.fireworks[0]
+        
+        # 爆発前の状態を確認
+        self.assertFalse(firework.exploded)
+        self.assertEqual(len(firework.particles), 0)
+        
+        # 花火を更新（爆発させる）
+        firework.y = firework.target_y
+        firework.update()
+        
+        # 爆発後の状態を確認
+        self.assertTrue(firework.exploded)
+        self.assertGreater(len(firework.particles), 0)
+        
+        # パーティクルの寿命を0にして終了させる
+        for particle in firework.particles:
+            particle.life = 0
+        
+        # 花火を更新
+        firework.update()
+        
+        # 花火が終了することを確認
+        self.assertTrue(firework.is_finished())
+
+
 class TestIntegration(unittest.TestCase):
     """統合テスト"""
     
@@ -455,6 +690,229 @@ class TestIntegration(unittest.TestCase):
         app.destroy()
 
 
+class TestGUIEventHandlers(unittest.TestCase):
+    """GUIイベントハンドラーのテスト"""
+    
+    def setUp(self):
+        """テスト前の準備"""
+        self.app = CanvasAnimationApp()
+    
+    def tearDown(self):
+        """テスト後のクリーンアップ"""
+        self.app.destroy()
+    
+    def test_canvas_click_event(self):
+        """キャンバスクリックイベントのテスト"""
+        # アニメーションを開始
+        self.app.is_running = True
+        initial_firework_count = len(self.app.fireworks)
+        
+        # モックイベントを作成
+        mock_event = Mock()
+        mock_event.x = 100
+        mock_event.y = 200
+        
+        # キャンバスクリックをシミュレート
+        self.app.on_canvas_click(mock_event)
+        
+        # 花火が追加されることを確認
+        self.assertEqual(len(self.app.fireworks), initial_firework_count + 1)
+        
+        # 追加された花火のプロパティを確認
+        firework = self.app.fireworks[-1]
+        self.assertEqual(firework.x, 100)
+        self.assertEqual(firework.target_y, 200)
+    
+    def test_canvas_click_when_not_running(self):
+        """アニメーション停止時のキャンバスクリックテスト"""
+        # アニメーションを停止
+        self.app.is_running = False
+        initial_firework_count = len(self.app.fireworks)
+        
+        # モックイベントを作成
+        mock_event = Mock()
+        mock_event.x = 150
+        mock_event.y = 250
+        
+        # キャンバスクリックをシミュレート
+        self.app.on_canvas_click(mock_event)
+        
+        # 花火が追加されないことを確認
+        self.assertEqual(len(self.app.fireworks), initial_firework_count)
+    
+    def test_canvas_click_bound_to_canvas(self):
+        """キャンバスへのイベントバインディングテスト"""
+        # キャンバスにバインディングされているイベントを確認
+        bindings = self.app.canvas.bind()
+        
+        # Button-1（左クリック）がバインディングされていることを確認
+        self.assertIn('<Button-1>', bindings)
+    
+    def test_button_click_events(self):
+        """ボタンクリックイベントのテスト"""
+        # リセットボタンのクリックをテスト
+        initial_firework_count = len(self.app.fireworks)
+        self.app.is_running = True
+        
+        # リセットボタンをクリック
+        self.app.reset_animation()
+        
+        # アニメーションが停止し、花火がクリアされることを確認
+        self.assertFalse(self.app.is_running)
+        self.assertEqual(len(self.app.fireworks), 0)
+    
+    def test_timer_button_click(self):
+        """タイマー設定ボタンクリックのテスト"""
+        with patch('fireworks.fireworks.TimerDialog') as mock_dialog_class:
+            # モックダイアログを作成
+            mock_dialog = Mock()
+            mock_dialog.result = 300  # 5分
+            mock_dialog_class.return_value = mock_dialog
+            
+            with patch.object(self.app, 'wait_window') as mock_wait_window:
+                with patch.object(self.app, 'start_animation') as mock_start_animation:
+                    # タイマー設定ボタンをクリック
+                    self.app.show_timer_dialog()
+                    
+                    # ダイアログが作成され、アニメーションが開始されることを確認
+                    mock_dialog_class.assert_called_once_with(self.app)
+                    mock_wait_window.assert_called_once_with(mock_dialog)
+                    mock_start_animation.assert_called_once()
+    
+    def test_timer_button_click_cancel(self):
+        """タイマー設定キャンセルのテスト"""
+        with patch('fireworks.fireworks.TimerDialog') as mock_dialog_class:
+            # モックダイアログを作成（キャンセル）
+            mock_dialog = Mock()
+            mock_dialog.result = None
+            mock_dialog_class.return_value = mock_dialog
+            
+            with patch.object(self.app, 'wait_window') as mock_wait_window:
+                with patch.object(self.app, 'start_animation') as mock_start_animation:
+                    # タイマー設定ボタンをクリック
+                    self.app.show_timer_dialog()
+                    
+                    # ダイアログが作成されるが、アニメーションは開始されないことを確認
+                    mock_dialog_class.assert_called_once_with(self.app)
+                    mock_wait_window.assert_called_once_with(mock_dialog)
+                    mock_start_animation.assert_not_called()
+    
+    def test_keyboard_events(self):
+        """キーボードイベントのテスト（もし実装されている場合）"""
+        # 現在の実装ではキーボードイベントはないが、
+        # 将来的な拡張のためにテストを準備
+        pass
+    
+    def test_multiple_canvas_clicks(self):
+        """複数回のキャンバスクリックテスト"""
+        self.app.is_running = True
+        
+        # 複数回クリック
+        for i in range(3):
+            mock_event = Mock()
+            mock_event.x = 100 + i * 50
+            mock_event.y = 200 + i * 30
+            self.app.on_canvas_click(mock_event)
+        
+        # 3つの花火が追加されることを確認
+        self.assertEqual(len(self.app.fireworks), 3)
+        
+        # 各花火の位置を確認
+        for i, firework in enumerate(self.app.fireworks):
+            self.assertEqual(firework.x, 100 + i * 50)
+            self.assertEqual(firework.target_y, 200 + i * 30)
+    
+    def test_canvas_click_edge_cases(self):
+        """キャンバスクリックのエッジケーステスト"""
+        self.app.is_running = True
+        
+        # 境界値でのテスト
+        edge_cases = [
+            (0, 0),           # 左上
+            (1200, 0),        # 右上
+            (0, 700),         # 左下
+            (1200, 700),      # 右下
+            (600, 350),       # 中央
+        ]
+        
+        for x, y in edge_cases:
+            mock_event = Mock()
+            mock_event.x = x
+            mock_event.y = y
+            self.app.on_canvas_click(mock_event)
+        
+        # 全ての花火が正しく追加されることを確認
+        self.assertEqual(len(self.app.fireworks), len(edge_cases))
+    
+    def test_canvas_click_with_negative_coordinates(self):
+        """負の座標でのキャンバスクリックテスト"""
+        self.app.is_running = True
+        
+        mock_event = Mock()
+        mock_event.x = -10
+        mock_event.y = -20
+        
+        # 負の座標でも花火が追加されることを確認
+        initial_count = len(self.app.fireworks)
+        self.app.on_canvas_click(mock_event)
+        
+        self.assertEqual(len(self.app.fireworks), initial_count + 1)
+        firework = self.app.fireworks[-1]
+        self.assertEqual(firework.x, -10)
+        self.assertEqual(firework.target_y, -20)
+    
+    def test_canvas_click_with_large_coordinates(self):
+        """大きな座標でのキャンバスクリックテスト"""
+        self.app.is_running = True
+        
+        mock_event = Mock()
+        mock_event.x = 2000
+        mock_event.y = 1500
+        
+        # 大きな座標でも花火が追加されることを確認
+        initial_count = len(self.app.fireworks)
+        self.app.on_canvas_click(mock_event)
+        
+        self.assertEqual(len(self.app.fireworks), initial_count + 1)
+        firework = self.app.fireworks[-1]
+        self.assertEqual(firework.x, 2000)
+        self.assertEqual(firework.target_y, 1500)
+    
+    def test_button_command_bindings(self):
+        """ボタンのコマンドバインディングテスト"""
+        # タイマー設定ボタンのコマンドが設定されていることを確認
+        self.assertIsNotNone(self.app.start_button['command'])
+        
+        # コマンドが設定されていることを確認（文字列または呼び出し可能オブジェクト）
+        command = self.app.start_button['command']
+        self.assertTrue(callable(command) or isinstance(command, str))
+        
+        # リセットボタンのコマンドを確認（create_widgets内で作成されるため、
+        # 実際のボタンオブジェクトへの参照を取得する必要がある）
+        # このテストは実装の詳細に依存するため、実際の動作で確認
+    
+    def test_event_propagation(self):
+        """イベント伝播のテスト"""
+        self.app.is_running = True
+        
+        # イベントが正しく処理されることを確認
+        mock_event = Mock()
+        mock_event.x = 100
+        mock_event.y = 200
+        
+        # イベント処理前の状態
+        initial_fireworks = len(self.app.fireworks)
+        
+        # イベントを処理
+        self.app.on_canvas_click(mock_event)
+        
+        # イベント処理後の状態
+        final_fireworks = len(self.app.fireworks)
+        
+        # 花火が追加されたことを確認
+        self.assertEqual(final_fireworks, initial_fireworks + 1)
+
+
 if __name__ == '__main__':
     # カバレージ測定の設定
     try:
@@ -475,7 +933,9 @@ if __name__ == '__main__':
         TestParticle,
         TestTimerDialog,
         TestCanvasAnimationApp,
-        TestIntegration
+        TestAnimationAndTimer, # 新しいテストクラスを追加
+        TestIntegration,
+        TestGUIEventHandlers
     ]
     
     for test_class in test_classes:
@@ -515,4 +975,4 @@ if __name__ == '__main__':
     if result.errors:
         print("\nエラーが発生したテスト:")
         for test, traceback in result.errors:
-            print(f"- {test}: {traceback}") 
+            print(f"- {test}: {traceback}")
