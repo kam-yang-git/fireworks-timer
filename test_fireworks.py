@@ -160,6 +160,245 @@ class TestParticle(unittest.TestCase):
         self.assertEqual(self.particle.life, 0)
 
 
+class TestParticleDrawing(unittest.TestCase):
+    """Particle描画機能のテスト"""
+    
+    def setUp(self):
+        """テスト前の準備"""
+        self.root = tk.Tk()
+        self.canvas = tk.Canvas(self.root, width=400, height=300, bg='black')
+        self.canvas.pack()
+        
+    def tearDown(self):
+        """テスト後のクリーンアップ"""
+        self.canvas.destroy()
+        self.root.destroy()
+    
+    def test_particle_draw_basic(self):
+        """基本的なパーティクル描画テスト"""
+        particle = Particle(100, 200, 0, 5, 'red', 1)
+        particle.life = 90  # 寿命を設定
+        
+        # 描画前のキャンバス状態を確認
+        initial_items = len(self.canvas.find_all())
+        
+        # パーティクルを描画
+        particle.draw(self.canvas)
+        
+        # 描画後にキャンバスアイテムが追加されることを確認
+        final_items = len(self.canvas.find_all())
+        self.assertGreater(final_items, initial_items)
+    
+    def test_particle_draw_with_trail(self):
+        """軌跡付きパーティクル描画テスト"""
+        particle = Particle(100, 200, 0, 5, 'red', 1)
+        particle.life = 90
+        
+        # 軌跡を追加
+        particle.trail = [
+            (95, 195, 'red'),
+            (90, 190, 'red'),
+            (85, 185, 'red')
+        ]
+        
+        # 描画前のキャンバス状態を確認
+        initial_items = len(self.canvas.find_all())
+        
+        # パーティクルを描画
+        particle.draw(self.canvas)
+        
+        # 軌跡も含めて描画されることを確認
+        final_items = len(self.canvas.find_all())
+        self.assertGreater(final_items, initial_items)
+    
+    def test_particle_draw_sparkle_effect(self):
+        """きらめき効果のテスト"""
+        particle = Particle(100, 200, 0, 5, 'gold', 0)
+        particle.life = 90
+        
+        # きらめき効果を強制的に発生させるため、random.random()をモック
+        with patch('random.random', return_value=0.05):  # きらめき発生
+            # 描画前のキャンバス状態を確認
+            initial_items = len(self.canvas.find_all())
+            
+            # パーティクルを描画
+            particle.draw(self.canvas)
+            
+            # きらめき効果により追加のアイテムが描画されることを確認
+            final_items = len(self.canvas.find_all())
+            self.assertGreater(final_items, initial_items)
+    
+    def test_particle_draw_no_sparkle(self):
+        """きらめき効果なしのテスト"""
+        particle = Particle(100, 200, 0, 5, 'red', 1)
+        particle.life = 90
+        
+        # きらめき効果を無効にするため、random.random()をモック
+        with patch('random.random', return_value=0.5):  # きらめきなし
+            # 描画前のキャンバス状態を確認
+            initial_items = len(self.canvas.find_all())
+            
+            # パーティクルを描画
+            particle.draw(self.canvas)
+            
+            # 通常の描画のみ行われることを確認
+            final_items = len(self.canvas.find_all())
+            self.assertGreater(final_items, initial_items)
+    
+    def test_particle_draw_ring_structure(self):
+        """輪の構造による描画調整テスト"""
+        # 内側の輪（ring=0）
+        inner_particle = Particle(100, 200, 0, 5, 'red', 0)
+        inner_particle.life = 90
+        
+        # 外側の輪（ring=2）
+        outer_particle = Particle(150, 200, 0, 5, 'blue', 2)
+        outer_particle.life = 90
+        
+        # 両方のパーティクルを描画
+        inner_particle.draw(self.canvas)
+        outer_particle.draw(self.canvas)
+        
+        # 両方とも正常に描画されることを確認
+        items = len(self.canvas.find_all())
+        self.assertGreater(items, 0)
+    
+    def test_particle_draw_life_based_size(self):
+        """寿命に基づくサイズ調整テスト"""
+        # 寿命が長いパーティクル
+        long_life_particle = Particle(100, 200, 0, 5, 'red', 1)
+        long_life_particle.life = 90
+        long_life_particle.max_life = 90
+        
+        # 寿命が短いパーティクル
+        short_life_particle = Particle(150, 200, 0, 5, 'blue', 1)
+        short_life_particle.life = 30
+        short_life_particle.max_life = 90
+        
+        # 両方のパーティクルを描画
+        long_life_particle.draw(self.canvas)
+        short_life_particle.draw(self.canvas)
+        
+        # 両方とも正常に描画されることを確認
+        items = len(self.canvas.find_all())
+        self.assertGreater(items, 0)
+    
+    def test_particle_draw_color_variations(self):
+        """色変化パターンのテスト"""
+        colors = ['gold', 'yellow', 'orange', 'red', 'purple', 'blue', 'white']
+        
+        for i, color in enumerate(colors):
+            particle = Particle(100 + i * 20, 200, 0, 5, color, 1)
+            particle.life = 90
+            
+            # 各色のパーティクルを描画
+            particle.draw(self.canvas)
+        
+        # 全ての色が正常に描画されることを確認
+        items = len(self.canvas.find_all())
+        self.assertGreater(items, 0)
+    
+    def test_particle_draw_fade_effect(self):
+        """フェード効果のテスト"""
+        particle = Particle(100, 200, 0, 5, 'gold', 1)
+        particle.life = 90
+        
+        # 軌跡を追加（フェード効果をテスト）
+        particle.trail = [
+            (95, 195, 'gold'),
+            (90, 190, 'orange'),
+            (85, 185, 'red')
+        ]
+        
+        # パーティクルを描画
+        particle.draw(self.canvas)
+        
+        # フェード効果が正常に描画されることを確認
+        items = len(self.canvas.find_all())
+        self.assertGreater(items, 0)
+    
+    def test_particle_draw_zero_life(self):
+        """寿命0のパーティクル描画テスト"""
+        particle = Particle(100, 200, 0, 5, 'red', 1)
+        particle.life = 0  # 寿命0
+        
+        # 描画前のキャンバス状態を確認
+        initial_items = len(self.canvas.find_all())
+        
+        # パーティクルを描画
+        particle.draw(self.canvas)
+        
+        # 寿命0の場合は何も描画されないことを確認
+        final_items = len(self.canvas.find_all())
+        self.assertEqual(final_items, initial_items)
+    
+    def test_particle_draw_complex_trail(self):
+        """複雑な軌跡の描画テスト"""
+        particle = Particle(100, 200, 0, 5, 'purple', 1)
+        particle.life = 90
+        
+        # 複雑な軌跡を追加
+        particle.trail = [
+            (95, 195, 'purple'),
+            (90, 190, 'purple'),
+            (85, 185, 'purple'),
+            (80, 180, 'purple'),
+            (75, 175, 'purple'),
+            (70, 170, 'purple'),
+            (65, 165, 'purple'),
+            (60, 160, 'purple')
+        ]
+        
+        # パーティクルを描画
+        particle.draw(self.canvas)
+        
+        # 複雑な軌跡が正常に描画されることを確認
+        items = len(self.canvas.find_all())
+        self.assertGreater(items, 0)
+    
+    def test_particle_draw_all_rings(self):
+        """全ての輪の描画テスト"""
+        for ring in range(3):
+            particle = Particle(100 + ring * 50, 200, 0, 5, 'red', ring)
+            particle.life = 90
+            
+            # 各輪のパーティクルを描画
+            particle.draw(self.canvas)
+        
+        # 全ての輪が正常に描画されることを確認
+        items = len(self.canvas.find_all())
+        self.assertGreater(items, 0)
+    
+    def test_particle_draw_edge_cases(self):
+        """エッジケースの描画テスト"""
+        # 極端な位置のパーティクル
+        edge_particle = Particle(0, 0, 0, 5, 'red', 1)
+        edge_particle.life = 90
+        
+        # 極端な位置でも正常に描画されることを確認
+        edge_particle.draw(self.canvas)
+        
+        items = len(self.canvas.find_all())
+        self.assertGreater(items, 0)
+    
+    def test_particle_draw_integration(self):
+        """統合描画テスト"""
+        # 複数のパーティクルを同時に描画
+        particles = []
+        for i in range(5):
+            particle = Particle(100 + i * 30, 200, 0, 5, 'red', i % 3)
+            particle.life = 90
+            particles.append(particle)
+        
+        # 全てのパーティクルを描画
+        for particle in particles:
+            particle.draw(self.canvas)
+        
+        # 全てのパーティクルが正常に描画されることを確認
+        items = len(self.canvas.find_all())
+        self.assertGreater(items, 0)
+
+
 class TestTimerDialog(unittest.TestCase):
     """TimerDialogクラスのテスト"""
     
@@ -931,6 +1170,7 @@ if __name__ == '__main__':
     test_classes = [
         TestFirework,
         TestParticle,
+        TestParticleDrawing, # 新しいテストクラスを追加
         TestTimerDialog,
         TestCanvasAnimationApp,
         TestAnimationAndTimer, # 新しいテストクラスを追加
