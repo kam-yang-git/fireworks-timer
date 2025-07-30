@@ -258,6 +258,14 @@ class CanvasAnimationApp(tk.Tk):
         
         self.create_widgets()
         self.setup_animations()
+        self.center_window()  # ウィンドウを中央に配置
+    
+    def center_window(self):
+        """ウィンドウを画面中央に配置"""
+        self.update_idletasks()
+        x = (self.winfo_screenwidth() // 2) - (1280 // 2)
+        y = (self.winfo_screenheight() // 2) - (720 // 2)
+        self.geometry(f"1280x720+{x}+{y}")
     
     def create_widgets(self):
         # コントロールパネル

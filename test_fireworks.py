@@ -471,6 +471,32 @@ class TestCanvasAnimationApp(unittest.TestCase):
         self.assertIsNone(self.app.timer_id)
         self.assertIsNone(self.app.start_time)
         self.assertIsNone(self.app.end_time)
+
+    def test_center_window(self):
+        """ウィンドウ中央配置のテスト"""
+        # center_windowメソッドを呼び出し
+        self.app.center_window()
+        
+        # ウィンドウの更新を待つ
+        self.app.update()
+        
+        # ジオメトリを取得して位置を確認
+        geometry = self.app.geometry()
+        
+        # 位置座標部分（+X+Y）が存在することを確認
+        import re
+        match = re.match(r"\d+x\d+\+(\d+)\+(\d+)", geometry)
+        self.assertIsNotNone(match)
+        
+        x = int(match.group(1))
+        y = int(match.group(2))
+        
+        # 画面中央付近（0より大きいことだけ確認、詳細な中央判定は環境依存なので緩く）
+        self.assertGreater(x, 0)
+        self.assertGreater(y, 0)
+        
+        # サイズ部分も確認
+        self.assertIn("1280x720", geometry)
     
     def test_launch_firework(self):
         """花火発射テスト"""
