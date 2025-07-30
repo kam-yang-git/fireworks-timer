@@ -194,7 +194,7 @@ class TimerDialog(tk.Toplevel):
         x = (self.winfo_screenwidth() // 2) - (300 // 2)
         y = (self.winfo_screenheight() // 2) - (200 // 2)
         self.geometry(f"300x200+{x}+{y}")
-    
+
     def create_widgets(self):
         # タイトル
         title_label = tk.Label(self, text="タイマー設定", font=("Arial", 14, "bold"))
