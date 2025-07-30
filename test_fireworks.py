@@ -1152,6 +1152,48 @@ class TestGUIEventHandlers(unittest.TestCase):
         self.assertEqual(final_fireworks, initial_fireworks + 1)
 
 
+class TestTimerDialogCenterWindow(unittest.TestCase):
+    """TimerDialog.center_window()のテスト"""
+    def setUp(self):
+        self.root = tk.Tk()
+        self.dialog = TimerDialog(self.root)
+    def tearDown(self):
+        self.dialog.destroy()
+        self.root.destroy()
+    def test_center_window_sets_position(self):
+        # center_window呼び出し
+        self.dialog.center_window()
+        # ウィンドウの更新を待つ
+        self.dialog.update()
+        after = self.dialog.geometry()
+        # 位置座標部分（+X+Y）が中央付近かどうかを検証
+        import re
+        match = re.match(r"\d+x\d+\+(\d+)\+(\d+)", after)
+        self.assertIsNotNone(match)
+        x = int(match.group(1))
+        y = int(match.group(2))
+        # 画面中央付近（0より大きいことだけ確認、詳細な中央判定は環境依存なので緩く）
+        self.assertGreater(x, 0)
+        self.assertGreater(y, 0)
+        # サイズ部分も確認（ウィンドウが更新された後なので正しいサイズが反映される）
+        self.assertIn("300x200", after)
+
+class TestGetCurrentTime(unittest.TestCase):
+    """CanvasAnimationApp.get_current_time()のテスト"""
+    def setUp(self):
+        self.app = CanvasAnimationApp()
+    def tearDown(self):
+        self.app.destroy()
+    def test_get_current_time_format(self):
+        # datetimeをモックして固定値を返す
+        with patch('datetime.datetime') as mock_datetime:
+            mock_now = Mock()
+            mock_now.strftime.return_value = "12:34"
+            mock_datetime.now.return_value = mock_now
+            result = self.app.get_current_time()
+            self.assertEqual(result, "12:34")
+
+
 if __name__ == '__main__':
     # カバレージ測定の設定
     try:
@@ -1175,7 +1217,9 @@ if __name__ == '__main__':
         TestCanvasAnimationApp,
         TestAnimationAndTimer, # 新しいテストクラスを追加
         TestIntegration,
-        TestGUIEventHandlers
+        TestGUIEventHandlers,
+        TestTimerDialogCenterWindow, # 新しいテストクラスを追加
+        TestGetCurrentTime # 新しいテストクラスを追加
     ]
     
     for test_class in test_classes:
